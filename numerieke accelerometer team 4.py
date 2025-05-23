@@ -8,7 +8,8 @@ Created on Fri Apr 25 13:40:30 2025
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d 
+from scipy.interpolate import CubicSpline
 from scipy.integrate import solve_ivp
 import numpy as np
 
@@ -25,7 +26,7 @@ a = df[" versnelling (m/s^2)"]
 m = 5e-2
 M = .5
 k = 2
-b = 2*((m*k)**.5)
+b = (4*m*k)**.5
 x0 = 0
 v0 = 0
 a0 = 0
@@ -47,34 +48,34 @@ y0 = [x0, v0]
 
 # tijd-array instellen voor het berekenen
 t_span = (t.iloc[0], t.iloc[-1])
-t_eval = t 
 
 # oplossen differentiaalvergelijking met scipy
-sol_x = solve_ivp(system, t_span, y0, t_eval=t_eval, method='RK45')
+sol_x = solve_ivp(system, t_span, y0, t_eval=t, method='RK45')
 
 # output DV definieren voor berekening
 x = sol_x.y[0]
-v_m = sol_x.y[1]
+
+# Step 1: Interpolate x(t) using cubic splines for smooth derivatives
+cs = CubicSpline(t, x)
+
+# Step 2: Compute velocity and acceleration
+v_CS = cs.derivative()(t)      # dx/dt
+a_CS = cs.derivative(nu=2)(t)  # d²x/dt²
+
+# Step 3: Compute total acceleration a_tot
+a_sci_cs = (m * a_CS + b * v_CS + k * x) / M
 
 # versnellingsarrays aanmaken voor for-loop
-a_m = np.zeros_like(t)
-a_m[0] = a0
 a_a = np.zeros_like(t)
 a_a[0] = a0
 
-# for-loop voor berekenen versnelling 
-for i in range(1, len(t)-2):
-    #v_m[i] = (x[i+1]-x[i-1])/(dt*2)
-    a_m[i] = (v_m[i+1]-v_m[i-1])/(2*dt)
-    a_a[i] = (m*a_m[i]+b*v_m[i]+k*x[i])/M
-
-#(x[i+1]-2*x[i]+x[i-1])/dt2 (overige opties om a_m te bereken)
-#(v_m[i]-v_m[i-1])/dt
-
+for i in range(0, len(t)):
+    a_a[i] = (x[i]*k)/M
+    
 # creeren daraframe om op te slaan als csv
 DF = pd.DataFrame({
     "tijd (s)": t,
-    "versnelling (m/s^2)": a_a  
+    "versnelling (m/s^2)": a_a
 })
 
 DF.to_csv('output numerieke accelerometer', sep=',')
@@ -90,18 +91,19 @@ plt.grid()
 plt.show()
 
 plt.plot(t, a, label='inputwaarden versnelling')
-plt.plot(t, a_a, label="versnelling berekent (m/s^2)")
-plt.ylabel('input versnelling (m/s^2')
+plt.plot(t, a_a, label='correcte methode')
+plt.ylabel('versnelling (m/s^2)')
 plt.xlabel('tijd (s)')
-plt.title('inputversnelling')
+plt.title('berekende versnellingen')
 plt.legend()
 plt.grid()
 plt.show()
 
 plt.plot(t, a, label='inputwaarden versnelling')
-plt.ylabel('input versnelling (m/s^2')
+plt.plot(t, a_sci_cs, label='correcte methode')
+plt.ylabel('versnelling (m/s^2)')
 plt.xlabel('tijd (s)')
-plt.title('inputversnelling')
+plt.title('berekende versnellingen')
 plt.legend()
 plt.grid()
 plt.show()
