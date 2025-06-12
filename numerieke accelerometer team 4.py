@@ -19,11 +19,11 @@ os.chdir(script_dir)
 #inlezen van het csv bestand
 df = pd.read_csv('versnellingsprofiel_glad.csv')
 t = df["# tijd (s)"]
-a = df[" versnelling (m/s^2)"]
+a = df[" versnelling (m/s^2)"]*100
 
 #bepaling van constantes
 m = .12
-M = .5
+M = .159
 k1 = 2.8
 b1 = (4*m*k1)**.5
 x0 = 0
@@ -39,7 +39,7 @@ a_interp = interp1d(t, a, kind='cubic', fill_value="interpolate")
 def system(t, y):
     x, v = y
     dxdt = v
-    dvdt = (M * a_interp(t) - b1 * v - k1 * x) / m
+    dvdt = (m * a_interp(t) - b1 * v - k1 * x) / M
     return [dxdt, dvdt]
 
 # startwaarden invoeren voor het systeem
@@ -59,22 +59,29 @@ a_a = np.zeros_like(t)
 a_a[0] = a0
 
 for i in range(0, len(t)):
-    a_a[i] = (x[i]*k1)/M
+    a_a[i] = (x[i]*k1)/m
     
-# creeren daraframe om op te slaan als csv
+# creeren dataframe om op te slaan als csv
 DF = pd.DataFrame({
     "tijd (s)": t,
     "versnelling (m/s^2)": a_a
 })
 
-DF.to_csv('output numerieke accelerometer', sep=',')
+DF.to_csv('output numerieke accelerometer: versnelling', sep=',')
+
+DF2 = pd.DataFrame({
+    "tijd (s)": t,
+    "afstand massa TOV sensor, (cm)": x
+})
+
+DF2.to_csv("output numerieke accelerometer: afstand", sep=',')
 
 # plotten 
 plt.plot(sol_x1.t, sol_x1.y[0], label='x(t) - Position')
 plt.plot(sol_x1.t, sol_x1.y[1], label='v(t) - Velocity')
-plt.ylabel("afstand massa (m)")
+plt.ylabel("afstand massa (cm)")
 plt.xlabel("tijd (s)")
-plt.title('afstand massa k=2')
+plt.title('afstand - en snelheid massa ')
 plt.legend()
 plt.grid()
 plt.show()
